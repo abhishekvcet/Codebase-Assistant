@@ -1,0 +1,57 @@
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Virtual Environment ───────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Environment Variables ─────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── FAISS Index ───────────────────────────────────────────────
+*.faiss
+faiss_index/
+index_store/
+
+# ── Sentence Transformers Cache ───────────────────────────────
+.cache/
+
+# ── Logs ──────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Docker ────────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── Node (if any frontend tooling) ────────────────────────────
+node_modules/
+
+# ── OS ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Misc ──────────────────────────────────────────────────────
+*.bak
+*.tmp
+*.temp

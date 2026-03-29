@@ -1,0 +1,29 @@
+# Core
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+python-dotenv==1.0.1
+httpx==0.28.1
+
+# LLM Providers
+groq==0.13.0
+google-generativeai==0.8.4
+
+# RAG
+sentence-transformers==3.3.1
+faiss-cpu==1.9.0.post1
+numpy==1.26.4
+
+# Graph
+neo4j==5.27.0
+
+# CLI
+typer[all]==0.15.1
+rich==13.9.4
+
+# Database
+psycopg2-binary==2.9.10
+redis==5.2.1
+
+# Utilities
+aiofiles==24.1.0

@@ -4,12 +4,14 @@ Intelligent Codebase Assistant — Interactive CLI Tool
 Commands:
   cb index <folder_or_file>    Index code into ChromaDB
   cb run                       Interactive mode selection & chat
+  cb web                       Open the Web UI in browser
   cb health                    Check provider health
 """
 
 import sys
 import time
 import asyncio
+import webbrowser
 from pathlib import Path
 from typing import Optional
 
@@ -469,8 +471,17 @@ def _display_dependency_info(info: dict, file_path: str):
             )
         console.print(fn_table)
 
+# ── web ────────────────────────────────────────────────────────────
+
+@app.command()
+def web():
+    """Open the Intelligent Codebase Assistant Web UI in your browser."""
+    console.print(f"\n[bold green]🌐 Opening Web UI:[/] {API_BASE}\n")
+    webbrowser.open(API_BASE)
+
 
 # ── health ─────────────────────────────────────────────────────────
+
 
 @app.command()
 def health():

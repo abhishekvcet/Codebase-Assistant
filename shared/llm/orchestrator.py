@@ -16,6 +16,7 @@ from .base import LLMResponse
 from .ollama_client import OllamaClient
 from .groq_client import GroqClient
 from .gemini_client import GeminiClient
+from shared.prompts import GENERAL_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,10 @@ class LLMOrchestrator:
         Primary entry point.
         Returns dict with: answer, model_used, mode, fallback_used, latency_ms
         """
+        # Apply default system prompt if none provided
+        if system_prompt is None:
+            system_prompt = GENERAL_SYSTEM_PROMPT
+
         fallback_used = False
 
         if model_preference == "auto":

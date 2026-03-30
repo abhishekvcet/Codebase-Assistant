@@ -12,6 +12,8 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+from shared.prompts import DEBUG_SYSTEM_PROMPT, DEBUG_ANALYSIS_TEMPLATE
+
 logger = logging.getLogger(__name__)
 
 
@@ -132,25 +134,16 @@ async def analyze_errors(
     parsed = parse_log_content(log_content)
     error_summary = summarize_errors(parsed)
 
-    system_prompt = (
-        "You are a senior software engineer specializing in debugging and root cause analysis. "
-        "Analyze the errors provided and give:\n"
-        "1. A clear summary of each error\n"
-        "2. The most likely root cause\n"
-        "3. Step-by-step fix recommendations\n"
-        "4. Prevention strategies\n"
-        "Be specific and reference the actual error messages and stack traces."
-    )
-
-    prompt = f"## Error Report\n\n{error_summary}"
-
+    additional_context_section = ""
     if additional_context:
-        prompt += f"\n\n## Additional Context\n\n{additional_context}"
+        additional_context_section = f"## Additional Context\n\n{additional_context}"
 
-    prompt += (
-        "\n\n## Instructions\n\n"
-        "Provide a thorough root cause analysis with actionable fix recommendations."
+    prompt = DEBUG_ANALYSIS_TEMPLATE.format(
+        error_summary=error_summary,
+        additional_context_section=additional_context_section,
     )
+
+    system_prompt = DEBUG_SYSTEM_PROMPT
 
     response = await orchestrator.generate_response(
         prompt,

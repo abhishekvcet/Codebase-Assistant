@@ -6,12 +6,14 @@ AI-powered code understanding, debugging, and documentation — powered by a hyb
 
 ## ✨ Features
 
-- **RAG-Powered Code Chat** — Strict RAG-first pipeline indexing code into ChromaDB for context-aware answers.
-- **Hybrid LLM System** — Fallback orchestration: `Local (Ollama) → Groq → Gemini` with 3x retry logic.
-- **Interactive CLI (`cb`)** — Menu-driven mode selection (Chat / Debug / Dependency) with dynamic model listing.
-- **Web UI** — Real-time chat with model selection, context source display, and markdown rendering.
-- **Debug Mode** — Root cause analysis from error logs with fix recommendations based on indexed code.
-- **Dependency Analysis** — Parse AST imports/classes/functions and analyze cross-module impact.
+-   **RAG-Powered Code Chat** — Strict RAG-first pipeline indexing code into ChromaDB for context-aware answers.
+-   **Hybrid LLM System** — Fallback orchestration: `Local (Ollama) → Groq → Gemini` with 3x retry logic.
+-   **Automated Startup** — One-click `start_all.bat` to launch the API server, Web UI, and Interactive CLI.
+-   **Interactive CLI (`cb`)** — Menu-driven mode selection (Chat / Debug / Dependency) with shorthand commands.
+-   **Web UI** — Real-time chat with model selection, context source display, and markdown rendering.
+-   **External Database** — ChromaDB data is stored outside the repository for cleaner commits.
+-   **Debug Mode** — Root cause analysis from error logs with fix recommendations based on indexed code.
+-   **Dependency Analysis** — Parse AST imports/classes/functions and analyze cross-module impact.
 
 ---
 
@@ -30,248 +32,105 @@ User (CLI / Web UI)
        └── /health → Provider Status
 ```
 
-### Project Structure
-
-```
-Codebase-Assistant/
-├── cli/
-│   └── cli.py                  # Interactive CLI (cb index / cb run)
-├── frontend/
-│   ├── index.html              # Web UI
-│   ├── app.js                  # Frontend logic
-│   └── style.css               # Styles
-├── services/
-│   ├── api_gateway/
-│   │   └── main.py             # FastAPI server (all endpoints)
-│   ├── rag_service/
-│   │   └── rag_service.py      # ChromaDB indexing & retrieval
-│   ├── debug_service/
-│   │   └── debug_service.py    # Error log analysis
-│   ├── graph_service/          # Dependency graph parsing
-│   └── llm_orchestrator/
-├── shared/
-│   ├── config.py               # Central configuration
-│   └── llm/
-│       ├── base.py             # LLM abstract interface
-│       ├── ollama_client.py    # Ollama (local)
-│       ├── groq_client.py      # Groq (cloud, with retry)
-│       ├── gemini_client.py    # Gemini (cloud, with retry)
-│       └── orchestrator.py     # Model selection + fallback chain
-├── requirements.txt            # Python dependencies
-├── .env                        # Environment variables (gitignored)
-└── .env.example                # Template for .env
-```
-
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Windows)
 
-### Prerequisites
+The fastest way to get started is using our automated scripts.
 
-- **Python 3.11+**
-- **Ollama** installed locally ([ollama.com](https://ollama.com)) with at least one model pulled
+### 1. Initial Setup
 
-### 1. Clone & Setup
-
-```bash
+```powershell
 git clone <repo-url>
 cd Codebase-Assistant
 
-# Create virtual environment
+# Create & activate virtual environment
 python -m venv .venv
-# Windows:
 .venv\Scripts\activate
-# Linux/Mac:
-# source .venv/bin/activate
 
-# Install dependencies
+# Install all requirements (including sentence-transformers)
 pip install -r requirements.txt
+
+# Create your .env file
+copy .env.example .env
 ```
 
-### 2. Configure Environment
+### 2. Configure API Keys
+Edit your `.env` file to add your `GROQ_API_KEY` or `GEMINI_API_KEY` if you want to use cloud models.
 
-```bash
-# Copy the example env file
-cp .env.example .env
+### 3. One-Click Launch 🚀
+Start the server, open the browser, and enter interactive chat all at once:
+```powershell
+.\start_all.bat
 ```
 
-Edit `.env` with your API keys:
-
-```env
-# Required for cloud LLMs (optional if using Ollama only)
-GROQ_API_KEY=your_groq_api_key_here
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# Ollama (runs locally)
-OLLAMA_BASE_URL=http://localhost:11434
-```
-
-### 3. Start Ollama (Local LLM)
-
-```bash
-# Pull a model
-ollama pull llama3:8b
-ollama pull phi3
-
-# Ollama runs automatically as a service, or start it:
-ollama serve
-```
-
-### 4. Start the API Server
-
-```bash
-python -m services.api_gateway.main
-```
-
-The server starts at **http://localhost:8000**
-
-### 5. Index Your Codebase (Required)
-
-The assistant uses a strict RAG-first pipeline. You **must** index your project before chatting.
-
-```bash
-# Via CLI (ensure server is running)
-cb index ./path/to/your/project
-```
-
-### 6. Start Chatting!
-
-**Interactive CLI:**
-```bash
-cb run
-```
-
-**Web UI:**
-Open [http://localhost:8000](http://localhost:8000) in your browser.
-
----
-
-## 💻 CLI Usage
-
-The project includes a `cb` shortcut for a streamlined experience.
-
-### Index a Codebase
-```bash
-cb index ./your-project
-```
-
-### Interactive Mode
-```bash
-cb run
-```
-
-The interactive flow allows you to:
-1. **Select Mode** → Chat (General), Debug (Log analysis), or Dependency (Graph analysis).
-2. **Select Model** → Choose between local (Ollama) or API-based (Groq/Gemini).
-3. **Start Working** → Enter an interactive loop (type `quit` to exit).
-
-### Health Check
-Check connection status and configured providers:
-```bash
-cb health
+### 4. Index Your Codebase (Required First Step)
+The assistant uses a strict RAG-first pipeline. You **must** index your project folder before chatting:
+```powershell
+# Open a new terminal (while server is running) and run:
+.\cb index C:\path\to\your\codebase
 ```
 
 ---
 
-## 🌐 API Endpoints
+## 💻 CLI Commands (`cb`)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/chat` | Chat with RAG context (main endpoint) |
-| `POST` | `/index` | Index a directory into ChromaDB |
-| `POST` | `/debug` | Analyze error logs |
-| `POST` | `/deps` | Dependency analysis |
-| `GET` | `/rag/status` | ChromaDB index status |
-| `GET` | `/health` | Provider health check |
-| `GET` | `/` | Web UI |
+We provide a `cb` shortcut for a streamlined terminal experience.
 
-### Example: Chat
+| Command | Description |
+| :--- | :--- |
+| `.\cb index <path>` | Index a folder or file into the database |
+| `.\cb run` | Launch Interactive Mode (Chat/Debug/Deps) |
+| `.\cb web` | Open the Web UI in your default browser |
+| `.\cb health` | Check if providers (Ollama, Groq, etc.) are reachable |
 
-```bash
-curl -X POST http://localhost:8000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"query": "How does the RAG service work?", "model": "auto"}'
-```
+---
 
-### Response Format
+## 🌐 API & Web UI
 
-```json
-{
-  "answer": "The RAG service works by...",
-  "model_used": "llama3:8b",
-  "provider": "ollama",
-  "mode": "chat",
-  "fallback_used": false,
-  "latency_ms": 1234.5,
-  "context_used": [
-    {"file": "services/rag_service/rag_service.py", "lines": "10-25", "scope": "search", "score": 0.89}
-  ],
-  "context_chunks": 5
-}
-```
+-   **Dashboard**: Access the Web UI at [http://localhost:8000](http://localhost:8000)
+-   **API Base**: [http://localhost:8000](http://localhost:8000)
+-   **Health**: [http://localhost:8000/health](http://localhost:8000/health)
 
 ---
 
 ## ⚙️ Configuration
 
-All settings are in `.env` (see `.env.example` for template):
+Settings are managed in `.env`. Key options:
 
 | Variable | Default | Description |
-|----------|---------|-------------|
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
-| `OLLAMA_MODEL_FAST` | `phi3` | Fast model for simple queries |
-| `OLLAMA_MODEL_COMPLEX` | `llama3:8b` | Complex model for detailed analysis |
-| `GROQ_API_KEY` | — | Groq API key ([console.groq.com](https://console.groq.com)) |
-| `GROQ_MODEL` | `llama-3.1-8b-instant` | Groq model |
-| `GEMINI_API_KEY` | — | Google Gemini API key ([aistudio.google.com](https://aistudio.google.com)) |
-| `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model |
-| `CHROMA_PERSIST_DIR` | `./chroma_db` | ChromaDB storage directory |
-| `CHROMA_COLLECTION_NAME` | `codebase` | ChromaDB collection name |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Sentence transformer model |
-| `CHUNK_SIZE` | `512` | Characters per code chunk |
-| `TOP_K_RESULTS` | `5` | Number of RAG results to retrieve |
-| `API_PORT` | `8000` | Server port |
-| `LOG_LEVEL` | `INFO` | Logging level |
+| :--- | :--- | :--- |
+| `CHROMA_PERSIST_DIR` | `../chroma_db` | **Now stored outside the repo** for cleanliness |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Requires `sentence-transformers` (installed via pip) |
+| `GROQ_API_KEY` | — | Required for high-speed cloud inference |
+| `GEMINI_API_KEY` | — | Required for deep architectural reasoning |
 
 ---
 
 ## 🔄 LLM Fallback Chain
 
-The system automatically falls back if a provider fails:
-
-```
-Primary Provider (user-selected or auto-detected)
-       │ fails
-       ▼
-  Local (Ollama) → Groq → Gemini
-```
+The system automatically falls back if a provider fails or API keys are missing:
+`Primary Provider → Local (Ollama) → Groq → Gemini`
 
 Each provider retries **3 times** with exponential backoff before failing over.
-
-### Auto-Classification
-
-When model is set to `auto`, queries are classified:
-
-| Category | Provider | Trigger Words |
-|----------|----------|---------------|
-| Simple | Ollama (phi3) | Short, basic questions |
-| RAG | Ollama (llama3) | "explain", "how does", "function", "class" |
-| Debug | Groq | "error", "bug", "traceback", "fix" |
-| Complex | Gemini | "architecture", "refactor", "optimize" |
-
----
-
-## 📁 Supported File Types
-
-The RAG indexer supports: `.py`, `.js`, `.ts`, `.jsx`, `.tsx`, `.java`, `.go`, `.rs`, `.c`, `.cpp`, `.cs`, `.rb`, `.php`, `.swift`, `.kt`, `.scala`, `.sh`, `.yaml`, `.json`, `.toml`, `.md`, `.html`, `.css`, `.sql`
 
 ---
 
 ## 🛠️ Troubleshooting
 
 | Problem | Solution |
-|---------|----------|
-| `Cannot connect to backend` | Start the server: `python -m services.api_gateway.main` |
+| :--- | :--- |
+| `Cannot connect to backend` | Ensure you ran `.\start_all.bat` or the server main script. |
+| `ChromaDB error (missing package)` | Run `pip install sentence-transformers`. |
+| `Interactive CLI busy` | Open a second terminal to run `cb index` while chatting. |
+| `No code context found` | You must index your codebase first using the `cb index` command. |
+
+---
+
+## 📄 License
+
+MIT
+ the server: `python -m services.api_gateway.main` |
 | `No Ollama models found` | Run `ollama pull llama3:8b` and ensure Ollama is running |
 | `Groq/Gemini not working` | Set valid API keys in `.env` |
 | `No code context found` | Index your codebase first: `cb index ./project` |

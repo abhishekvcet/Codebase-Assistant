@@ -8,6 +8,7 @@ Commands:
   cb health                    Check provider health
 """
 
+import re
 import sys
 import time
 import asyncio
@@ -22,6 +23,7 @@ from rich.panel import Panel
 from rich.markdown import Markdown
 from rich.table import Table
 from rich.prompt import Prompt
+from rich.text import Text
 from rich import print as rprint
 
 # Ensure project root on sys.path
@@ -38,6 +40,79 @@ console = Console()
 
 # Default API base URL
 API_BASE = "http://localhost:8000"
+
+# ── Clickable Links ──────────────────────────────────────────────
+
+# Matches Windows paths (C:\...), Unix paths (/home/...), and relative paths (src/foo.py)
+_FILE_PATH_RE = re.compile(
+    r'(?<![\'"`\w])'                          # not preceded by quote or word char
+    r'('
+    r'[A-Za-z]:[\\\/][\w\\\/.\-@\s]+'        # Windows absolute: C:\Users\...
+    r'|\/(?:[\w.\-@]+\/)+[\w.\-@]+'           # Unix absolute: /home/user/file.py
+    r'|(?:[\w.\-@]+[\\\/])+[\w.\-@]+\.\w+'   # Relative: src/utils/config.py
+    r')'
+    r'(?:\s*\(lines?\s*(\d+(?:\s*-\s*\d+)?)\))?'  # optional (lines 10-20)
+)
+
+_URL_RE = re.compile(
+    r'(https?://[^\s\)\]>\"\']+)'
+)
+
+
+def _linkify_answer(answer: str) -> Text:
+    """Convert file paths and URLs in the answer into clickable Rich Text links."""
+    text = Text()
+    last_end = 0
+
+    # Collect all matches (file paths + URLs) sorted by position
+    matches = []
+    for m in _FILE_PATH_RE.finditer(answer):
+        matches.append(("file", m.start(), m.end(), m))
+    for m in _URL_RE.finditer(answer):
+        matches.append(("url", m.start(), m.end(), m))
+
+    # Sort by start position and remove overlaps
+    matches.sort(key=lambda x: x[1])
+    filtered = []
+    prev_end = 0
+    for item in matches:
+        if item[1] >= prev_end:
+            filtered.append(item)
+            prev_end = item[2]
+    matches = filtered
+
+    for kind, start, end, m in matches:
+        # Append text before this match
+        if start > last_end:
+            text.append(answer[last_end:start])
+
+        matched_text = answer[start:end]
+
+        if kind == "url":
+            url = m.group(1).rstrip(".,;:")
+            text.append(url, style=f"link {url} bold cyan underline")
+        else:
+            file_path = m.group(1).strip()
+            line_info = m.group(2)
+            resolved = Path(file_path)
+
+            # Build a file:// URI for the terminal to open
+            try:
+                resolved = resolved.resolve()
+            except (OSError, ValueError):
+                pass
+
+            file_uri = resolved.as_uri()
+            display = matched_text.strip()
+            text.append(display, style=f"link {file_uri} bold cyan underline")
+
+        last_end = end
+
+    # Append remaining text
+    if last_end < len(answer):
+        text.append(answer[last_end:])
+
+    return text
 
 
 def _run_async(coro):
@@ -95,14 +170,17 @@ def _display_response(result: dict):
     parts.append(f"📄 {context_chunks} context chunks")
     subtitle = " │ ".join(parts)
 
+    # Render answer with clickable file paths and URLs
+    linkified = _linkify_answer(answer)
+
     console.print(Panel(
-        Markdown(answer),
+        linkified,
         title=f"[bold green]Response[/] — {model_used} ({provider})",
         subtitle=subtitle,
         border_style="green",
     ))
 
-    # Show context sources
+    # Show context sources with clickable file paths
     if context_used:
         ctx_table = Table(title="📎 Context Sources", border_style="blue", show_lines=False)
         ctx_table.add_column("File", style="cyan", no_wrap=True)
@@ -111,8 +189,18 @@ def _display_response(result: dict):
         ctx_table.add_column("Score", justify="right", style="green")
 
         for ctx in context_used:
+            file_path = ctx.get("file", "")
+            file_name = Path(file_path).name if file_path else "unknown"
+
+            # Make the file name clickable
+            try:
+                file_uri = Path(file_path).resolve().as_uri()
+                file_text = Text(file_name, style=f"link {file_uri} bold cyan underline")
+            except (OSError, ValueError):
+                file_text = Text(file_name, style="cyan")
+
             ctx_table.add_row(
-                str(Path(ctx.get("file", "")).name),
+                file_text,
                 ctx.get("lines", ""),
                 ctx.get("scope", "") or "—",
                 f"{ctx.get('score', 0):.3f}",
@@ -339,8 +427,9 @@ def _debug_mode(model_preference: str):
             parsed_errors = result.get("parsed_errors", 0)
             error_types = result.get("error_types", [])
 
+            linkified = _linkify_answer(answer)
             console.print(Panel(
-                Markdown(answer),
+                linkified,
                 title=f"[bold red]Root Cause Analysis[/] — {model_used}",
                 subtitle=f"Errors found: {parsed_errors} │ Types: {', '.join(error_types) if error_types else 'N/A'}",
                 border_style="red",

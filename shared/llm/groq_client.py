@@ -1,10 +1,23 @@
 """
 Groq LLM client — cloud inference via the Groq API.
 Used for fast debugging and quick reasoning tasks.
+
+Features:
+  • Retry with exponential backoff (3 attempts)
+  • API key validation before call
+  • Timeout / auth / empty-response handling
 """
 
 import logging
 from typing import Optional
+
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
 
 from .base import LLMClient, LLMResponse
 from shared.config import settings
@@ -25,6 +38,10 @@ class GroqClient(LLMClient):
 
     def _get_client(self):
         if self._client is None:
+            if not self.api_key or self.api_key == "your_groq_api_key_here":
+                raise ValueError(
+                    "Groq API key not configured. Set GROQ_API_KEY in .env"
+                )
             from groq import AsyncGroq
             self._client = AsyncGroq(
                 api_key=self.api_key,
@@ -32,6 +49,12 @@ class GroqClient(LLMClient):
             )
         return self._client
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
     async def generate(
         self,
         prompt: str,
@@ -49,19 +72,35 @@ class GroqClient(LLMClient):
 
         logger.info("Groq request → model=%s, prompt_len=%d", model, len(prompt))
 
-        client = self._get_client()
-        completion = await client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
+        try:
+            client = self._get_client()
+            completion = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+        except ValueError:
+            # API key validation error — don't retry
+            raise
+        except Exception as exc:
+            logger.error("Groq API error: %s", exc)
+            raise
+
+        # Validate response
+        if not completion.choices:
+            raise RuntimeError("Groq returned empty response (no choices)")
 
         choice = completion.choices[0]
+        text = choice.message.content
+
+        if not text or not text.strip():
+            raise RuntimeError("Groq returned empty response text")
+
         usage = completion.usage
 
         return LLMResponse(
-            text=choice.message.content.strip(),
+            text=text.strip(),
             model_used=model,
             provider=self.provider_name,
             tokens_used=usage.total_tokens if usage else None,
@@ -73,11 +112,10 @@ class GroqClient(LLMClient):
         )
 
     async def is_available(self) -> bool:
-        if not self.api_key:
+        if not self.api_key or self.api_key == "your_groq_api_key_here":
             return False
         try:
             client = self._get_client()
-            # Light-weight check: list models
             await client.models.list()
             return True
         except Exception:

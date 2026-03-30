@@ -1,199 +1,284 @@
 # 🧠 Intelligent Codebase Assistant
 
-> AI-powered code understanding, debugging, dependency analysis, and documentation generation — with hybrid LLM support (Local + Cloud).
-
-![Python](https://img.shields.io/badge/Python-3.11+-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+AI-powered code understanding, debugging, and documentation — powered by a hybrid LLM system (Ollama / Groq / Gemini) with RAG-based retrieval using ChromaDB.
 
 ---
 
 ## ✨ Features
 
-- **RAG Pipeline** — Chunk code, embed with sentence-transformers, search with FAISS, answer with LLM context
-- **Debug Engine** — Parse logs, extract errors (Python/Java/JS), root cause analysis via LLM
-- **Dependency Graph** — AST-based parsing, Neo4j storage, visual dependency mapping
-- **Auto Documentation** — Generate module summaries and API docs
-- **Hybrid LLM** — Ollama (local), Groq (cloud/fast), Gemini (cloud/deep)
-- **Smart Routing** — Auto-classifies queries → picks the best model
-- **Fallback Chain** — If one provider fails: local → groq → gemini
-- **ChatGPT-like UI** — Dark theme, model selector, markdown rendering, chat history
-- **CLI Tool** — Full terminal interface with rich output
+- **RAG-Powered Code Chat** — Strict RAG-first pipeline indexing code into ChromaDB for context-aware answers.
+- **Hybrid LLM System** — Fallback orchestration: `Local (Ollama) → Groq → Gemini` with 3x retry logic.
+- **Interactive CLI (`cb`)** — Menu-driven mode selection (Chat / Debug / Dependency) with dynamic model listing.
+- **Web UI** — Real-time chat with model selection, context source display, and markdown rendering.
+- **Debug Mode** — Root cause analysis from error logs with fix recommendations based on indexed code.
+- **Dependency Analysis** — Parse AST imports/classes/functions and analyze cross-module impact.
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-├── shared/
-│   ├── config.py              # Environment configuration
-│   └── llm/
-│       ├── base.py            # Abstract LLM client
-│       ├── ollama_client.py   # Local Ollama integration
-│       ├── groq_client.py     # Groq cloud API
-│       ├── gemini_client.py   # Google Gemini API
-│       └── orchestrator.py    # Model selection & fallback
-├── services/
-│   ├── api_gateway/main.py    # FastAPI application
-│   ├── rag_service/           # RAG pipeline (FAISS)
-│   ├── debug_service/         # Error analysis
-│   └── graph_service/         # Dependency graph (Neo4j)
-├── cli/cli.py                 # Typer CLI tool
+User (CLI / Web UI)
+       │
+       ▼
+  API Gateway (FastAPI :8000)
+       │
+       ├── /chat ──→ RAG (ChromaDB) ──→ LLM Orchestrator ──→ Response
+       ├── /index ─→ Chunk + Embed ──→ ChromaDB (persistent)
+       ├── /debug ─→ Parse Logs ────→ LLM Analysis
+       ├── /deps ──→ AST Parsing ──→ Dependency Info
+       └── /health → Provider Status
+```
+
+### Project Structure
+
+```
+Codebase-Assistant/
+├── cli/
+│   └── cli.py                  # Interactive CLI (cb index / cb run)
 ├── frontend/
-│   ├── index.html             # Chat UI
-│   ├── style.css              # Premium dark theme
-│   └── app.js                 # Chat logic
-├── docker-compose.yml         # Infrastructure (Postgres, Neo4j, Redis)
-├── requirements.txt           # Python dependencies
-└── .env.example               # Environment template
+│   ├── index.html              # Web UI
+│   ├── app.js                  # Frontend logic
+│   └── style.css               # Styles
+├── services/
+│   ├── api_gateway/
+│   │   └── main.py             # FastAPI server (all endpoints)
+│   ├── rag_service/
+│   │   └── rag_service.py      # ChromaDB indexing & retrieval
+│   ├── debug_service/
+│   │   └── debug_service.py    # Error log analysis
+│   ├── graph_service/          # Dependency graph parsing
+│   └── llm_orchestrator/
+├── shared/
+│   ├── config.py               # Central configuration
+│   └── llm/
+│       ├── base.py             # LLM abstract interface
+│       ├── ollama_client.py    # Ollama (local)
+│       ├── groq_client.py      # Groq (cloud, with retry)
+│       ├── gemini_client.py    # Gemini (cloud, with retry)
+│       └── orchestrator.py     # Model selection + fallback chain
+├── requirements.txt            # Python dependencies
+├── .env                        # Environment variables (gitignored)
+└── .env.example                # Template for .env
 ```
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Prerequisites
+### Prerequisites
 
 - **Python 3.11+**
-- **Ollama** installed locally ([ollama.ai](https://ollama.ai))
-- **Docker** (for infrastructure services)
+- **Ollama** installed locally ([ollama.com](https://ollama.com)) with at least one model pulled
 
-### 2. Setup
+### 1. Clone & Setup
 
 ```bash
-# Clone and enter the project
-cd intelligent-codebase-assistant
+git clone <repo-url>
+cd Codebase-Assistant
 
 # Create virtual environment
 python -m venv .venv
-.venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # macOS/Linux
+# Windows:
+.venv\Scripts\activate
+# Linux/Mac:
+# source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
-
-# Copy environment file
-copy .env.example .env
-# Edit .env with your API keys
 ```
 
-### 3. Pull Ollama Models
+### 2. Configure Environment
 
 ```bash
-ollama pull phi3
+# Copy the example env file
+cp .env.example .env
+```
+
+Edit `.env` with your API keys:
+
+```env
+# Required for cloud LLMs (optional if using Ollama only)
+GROQ_API_KEY=your_groq_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Ollama (runs locally)
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+### 3. Start Ollama (Local LLM)
+
+```bash
+# Pull a model
 ollama pull llama3:8b
+ollama pull phi3
+
+# Ollama runs automatically as a service, or start it:
+ollama serve
 ```
 
-### 4. Start Infrastructure
+### 4. Start the API Server
 
 ```bash
-docker compose up -d
+python -m services.api_gateway.main
 ```
 
-### 5. Start the Backend
+The server starts at **http://localhost:8000**
+
+### 5. Index Your Codebase (Required)
+
+The assistant uses a strict RAG-first pipeline. You **must** index your project before chatting.
 
 ```bash
-python -m uvicorn services.api_gateway.main:app --reload --port 8000
+# Via CLI (ensure server is running)
+cb index ./path/to/your/project
 ```
 
-### 6. Open the UI
+### 6. Start Chatting!
 
-Visit **http://localhost:8000** in your browser.
+**Interactive CLI:**
+```bash
+cb run
+```
+
+**Web UI:**
+Open [http://localhost:8000](http://localhost:8000) in your browser.
 
 ---
 
-## 🖥️ CLI Usage
+## 💻 CLI Usage
 
+The project includes a `cb` shortcut for a streamlined experience.
+
+### Index a Codebase
 ```bash
-# Ask questions
-python -m cli.cli ask "Explain the authentication flow" --model auto
-python -m cli.cli ask "What does this function do?" --model local
-python -m cli.cli ask "Analyze the architecture" --model gemini
+cb index ./your-project
+```
 
-# Debug errors
-python -m cli.cli debug error.log --model groq
+### Interactive Mode
+```bash
+cb run
+```
 
-# Analyze dependencies
-python -m cli.cli deps main.py
+The interactive flow allows you to:
+1. **Select Mode** → Chat (General), Debug (Log analysis), or Dependency (Graph analysis).
+2. **Select Model** → Choose between local (Ollama) or API-based (Groq/Gemini).
+3. **Start Working** → Enter an interactive loop (type `quit` to exit).
 
-# Index codebase for RAG
-python -m cli.cli index ./src
-
-# Health check
-python -m cli.cli health
+### Health Check
+Check connection status and configured providers:
+```bash
+cb health
 ```
 
 ---
 
-## 🧠 Model Selection
+## 🌐 API Endpoints
 
-| Mode     | Provider | Use Case                    |
-|----------|----------|-----------------------------|
-| `auto`   | Smart    | AI classifies and routes    |
-| `local`  | Ollama   | Fast/private, on-device     |
-| `groq`   | Groq     | Fast cloud, debugging       |
-| `gemini` | Gemini   | Deep reasoning, complexity  |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/chat` | Chat with RAG context (main endpoint) |
+| `POST` | `/index` | Index a directory into ChromaDB |
+| `POST` | `/debug` | Analyze error logs |
+| `POST` | `/deps` | Dependency analysis |
+| `GET` | `/rag/status` | ChromaDB index status |
+| `GET` | `/health` | Provider health check |
+| `GET` | `/` | Web UI |
 
-### Auto-Classification Logic
+### Example: Chat
 
-| Query Type | → Model       |
-|------------|---------------|
-| Simple     | phi3 (local)  |
-| RAG        | llama3 (local)|
-| Debug      | Groq          |
-| Complex    | Gemini        |
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query": "How does the RAG service work?", "model": "auto"}'
+```
 
----
-
-## 🔌 API Endpoints
-
-| Method | Endpoint         | Description                |
-|--------|------------------|----------------------------|
-| POST   | `/chat`          | Main chat endpoint         |
-| POST   | `/rag/index`     | Index codebase for RAG     |
-| GET    | `/rag/status`    | RAG index status           |
-| POST   | `/rag/query`     | Query with RAG context     |
-| POST   | `/debug/analyze` | Analyze error logs         |
-| POST   | `/graph/parse`   | Build dependency graph     |
-| GET    | `/health`        | Provider health check      |
-
-### Chat Request
+### Response Format
 
 ```json
 {
-  "query": "Explain the auth flow",
-  "model": "auto"
-}
-```
-
-### Chat Response
-
-```json
-{
-  "answer": "The authentication flow works by...",
+  "answer": "The RAG service works by...",
   "model_used": "llama3:8b",
   "provider": "ollama",
-  "mode": "auto",
+  "mode": "chat",
   "fallback_used": false,
-  "latency_ms": 1250.5
+  "latency_ms": 1234.5,
+  "context_used": [
+    {"file": "services/rag_service/rag_service.py", "lines": "10-25", "scope": "search", "score": 0.89}
+  ],
+  "context_chunks": 5
 }
 ```
 
 ---
 
-## 🔐 Environment Variables
+## ⚙️ Configuration
 
-| Variable           | Description                    | Default              |
-|--------------------|--------------------------------|----------------------|
-| `OLLAMA_BASE_URL`  | Ollama server URL              | http://localhost:11434|
-| `GROQ_API_KEY`     | Groq API key                   | —                    |
-| `GEMINI_API_KEY`   | Gemini API key                 | —                    |
-| `POSTGRES_URL`     | PostgreSQL connection URL      | —                    |
-| `NEO4J_URI`        | Neo4j Bolt URL                 | bolt://localhost:7687|
-| `REDIS_URL`        | Redis connection URL           | redis://localhost:6379|
+All settings are in `.env` (see `.env.example` for template):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
+| `OLLAMA_MODEL_FAST` | `phi3` | Fast model for simple queries |
+| `OLLAMA_MODEL_COMPLEX` | `llama3:8b` | Complex model for detailed analysis |
+| `GROQ_API_KEY` | — | Groq API key ([console.groq.com](https://console.groq.com)) |
+| `GROQ_MODEL` | `llama-3.1-8b-instant` | Groq model |
+| `GEMINI_API_KEY` | — | Google Gemini API key ([aistudio.google.com](https://aistudio.google.com)) |
+| `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model |
+| `CHROMA_PERSIST_DIR` | `./chroma_db` | ChromaDB storage directory |
+| `CHROMA_COLLECTION_NAME` | `codebase` | ChromaDB collection name |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Sentence transformer model |
+| `CHUNK_SIZE` | `512` | Characters per code chunk |
+| `TOP_K_RESULTS` | `5` | Number of RAG results to retrieve |
+| `API_PORT` | `8000` | Server port |
+| `LOG_LEVEL` | `INFO` | Logging level |
+
+---
+
+## 🔄 LLM Fallback Chain
+
+The system automatically falls back if a provider fails:
+
+```
+Primary Provider (user-selected or auto-detected)
+       │ fails
+       ▼
+  Local (Ollama) → Groq → Gemini
+```
+
+Each provider retries **3 times** with exponential backoff before failing over.
+
+### Auto-Classification
+
+When model is set to `auto`, queries are classified:
+
+| Category | Provider | Trigger Words |
+|----------|----------|---------------|
+| Simple | Ollama (phi3) | Short, basic questions |
+| RAG | Ollama (llama3) | "explain", "how does", "function", "class" |
+| Debug | Groq | "error", "bug", "traceback", "fix" |
+| Complex | Gemini | "architecture", "refactor", "optimize" |
+
+---
+
+## 📁 Supported File Types
+
+The RAG indexer supports: `.py`, `.js`, `.ts`, `.jsx`, `.tsx`, `.java`, `.go`, `.rs`, `.c`, `.cpp`, `.cs`, `.rb`, `.php`, `.swift`, `.kt`, `.scala`, `.sh`, `.yaml`, `.json`, `.toml`, `.md`, `.html`, `.css`, `.sql`
+
+---
+
+## 🛠️ Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `Cannot connect to backend` | Start the server: `python -m services.api_gateway.main` |
+| `No Ollama models found` | Run `ollama pull llama3:8b` and ensure Ollama is running |
+| `Groq/Gemini not working` | Set valid API keys in `.env` |
+| `No code context found` | Index your codebase first: `cb index ./project` |
+| `ChromaDB error` | Delete `./chroma_db/` and re-index |
 
 ---
 
 ## 📄 License
 
-MIT License — see [LICENSE](LICENSE) for details.
+MIT

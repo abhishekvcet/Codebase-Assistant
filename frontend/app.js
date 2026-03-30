@@ -246,7 +246,7 @@ async function sendMessage() {
         const response = await fetch(`${API_URL}/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query, model }),
+            body: JSON.stringify({ query, model, mode: 'chat' }),
         });
 
         if (!response.ok) {
@@ -256,7 +256,7 @@ async function sendMessage() {
 
         const data = await response.json();
 
-        // Add assistant message
+        // Add assistant message with context metadata
         chat.messages.push({
             role: 'assistant',
             content: data.answer,
@@ -264,6 +264,9 @@ async function sendMessage() {
             provider: data.provider,
             latency: data.latency_ms,
             fallback: data.fallback_used,
+            mode: data.mode || 'chat',
+            contextUsed: data.context_used || [],
+            contextChunks: data.context_chunks || 0,
             timestamp: Date.now(),
         });
 
@@ -335,13 +338,26 @@ function createMessageElement(msg) {
 
     let metaHTML = '';
     if (msg.role === 'assistant' && msg.model && msg.model !== 'error') {
+        let contextHTML = '';
+        if (msg.contextChunks > 0 && msg.contextUsed && msg.contextUsed.length > 0) {
+            const contextItems = msg.contextUsed.map(ctx => {
+                const fileName = ctx.file ? ctx.file.split(/[\\/]/).pop() : 'unknown';
+                return `<span class="context-file" title="${escapeHTML(ctx.file || '')}" style="background:var(--bg-secondary);padding:2px 6px;border-radius:4px;font-size:0.72rem;">📄 ${escapeHTML(fileName)} (${ctx.lines || '?'}) [${(ctx.score || 0).toFixed(2)}]</span>`;
+            }).join(' ');
+            contextHTML = `<div class="context-sources" style="margin-top:6px;font-size:0.75rem;color:var(--text-tertiary);display:flex;flex-wrap:wrap;gap:6px;">${contextItems}</div>`;
+        } else if (msg.contextChunks === 0) {
+            contextHTML = `<div class="no-context-warning" style="margin-top:6px;font-size:0.75rem;color:#f59e0b;">⚠ No code context found — response may be generic. Index your codebase first.</div>`;
+        }
+
         metaHTML = `
             <div class="message-meta">
                 <span class="model-badge">${msg.model}</span>
                 <span class="latency">⏱ ${Math.round(msg.latency || 0)}ms</span>
                 ${msg.fallback ? '<span class="fallback-badge">fallback</span>' : ''}
                 <span>${msg.provider || ''}</span>
+                <span style="margin-left:8px;opacity:0.7;">📄 ${msg.contextChunks || 0} chunks</span>
             </div>
+            ${contextHTML}
         `;
     }
 

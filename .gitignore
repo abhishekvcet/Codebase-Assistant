@@ -28,10 +28,8 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# ── FAISS Index ───────────────────────────────────────────────
-*.faiss
-faiss_index/
-index_store/
+# ── ChromaDB Persistent Store ─────────────────────────────────
+chroma_db/
 
 # ── Sentence Transformers Cache ───────────────────────────────
 .cache/
@@ -39,9 +37,6 @@ index_store/
 # ── Logs ──────────────────────────────────────────────────────
 *.log
 logs/
-
-# ── Docker ────────────────────────────────────────────────────
-docker-compose.override.yml
 
 # ── Node (if any frontend tooling) ────────────────────────────
 node_modules/

@@ -1,13 +1,14 @@
 """
 API Gateway — FastAPI application serving as the central entry point.
 
+Pipeline: User (CLI/Web) → API Gateway → RAG (ChromaDB) → LLM → Response
+
 Endpoints:
-  POST /chat              → Main chat endpoint with model selection
-  POST /rag/index         → Index a codebase directory for RAG
+  POST /chat              → Main chat (RAG-first, then LLM)
+  POST /index             → Index a codebase directory
+  POST /debug             → Analyze error logs
+  POST /deps              → Dependency analysis
   GET  /rag/status        → RAG index status
-  POST /debug/analyze     → Analyze error logs
-  POST /graph/parse       → Parse and build dependency graph
-  GET  /graph/deps        → Query dependencies for a module
   GET  /health            → Health check
   GET  /                  → Serve frontend
 """
@@ -57,10 +58,15 @@ async def lifespan(app: FastAPI):
     logger.info("   Ollama URL : %s", settings.OLLAMA_BASE_URL)
     logger.info("   Groq key   : %s", "configured" if settings.GROQ_API_KEY else "NOT SET")
     logger.info("   Gemini key : %s", "configured" if settings.GEMINI_API_KEY else "NOT SET")
+    logger.info("   ChromaDB   : %s", settings.CHROMA_PERSIST_DIR)
 
     # Check Ollama availability
     available = await orchestrator.ollama.is_available()
     logger.info("   Ollama     : %s", "✅ reachable" if available else "❌ unreachable")
+
+    # Log RAG index status
+    rag_status = rag_service.index_status()
+    logger.info("   RAG Index  : %d chunks indexed", rag_status.get("total_chunks", 0))
 
     yield
     logger.info("Shutting down...")
@@ -71,7 +77,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Intelligent Codebase Assistant",
     description="AI-powered code understanding, debugging, and documentation",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -89,6 +95,7 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1, description="User's question or prompt")
     model: str = Field("auto", description="Model preference: auto | local | groq | gemini")
+    mode: str = Field("chat", description="Mode: chat | debug | deps")
     system_prompt: Optional[str] = Field(None, description="Optional system prompt")
     temperature: float = Field(0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(2048, ge=1, le=8192)
@@ -102,6 +109,8 @@ class ChatResponse(BaseModel):
     fallback_used: bool
     latency_ms: float
     tokens_used: Optional[int] = None
+    context_used: list = Field(default_factory=list)
+    context_chunks: int = 0
 
 
 class IndexRequest(BaseModel):
@@ -114,41 +123,83 @@ class DebugRequest(BaseModel):
     additional_context: str = Field("", description="Extra context for analysis")
 
 
+class DepsRequest(BaseModel):
+    file_path: str = Field("", description="File path to analyze dependencies for")
+    query: str = Field("", description="Dependency impact query")
+    model: str = Field("auto", description="Model preference")
+
+
 class GraphParseRequest(BaseModel):
     directory: str = Field(..., description="Path to the codebase directory to parse")
-
-
-class GraphQueryRequest(BaseModel):
-    module_id: str = Field(..., description="Module file path to query dependencies for")
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """Main chat endpoint — routes to the appropriate LLM."""
-    logger.info("Chat request: model=%s, query_len=%d", request.model, len(request.query))
+    """
+    Main chat endpoint — ALWAYS queries RAG first, then sends context to LLM.
+
+    Pipeline: Query → RAG (ChromaDB) → Context Injection → LLM → Response
+    """
+    start_time = time.perf_counter()
+    logger.info(
+        "Chat request: model=%s, mode=%s, query_len=%d, query=%.100s",
+        request.model, request.mode, len(request.query), request.query,
+    )
 
     try:
-        result = await orchestrator.generate_response(
+        # ALWAYS use RAG pipeline — this is the enforced flow
+        result = await rag_service.rag_query(
             query=request.query,
+            orchestrator=orchestrator,
             model_preference=request.model,
-            system_prompt=request.system_prompt,
-            temperature=request.temperature,
-            max_tokens=request.max_tokens,
+            top_k=settings.TOP_K_RESULTS,
         )
-        return ChatResponse(**result)
+
+        total_ms = round((time.perf_counter() - start_time) * 1000, 2)
+
+        logger.info(
+            "Chat response: model=%s, provider=%s, fallback=%s, "
+            "context_chunks=%d, latency=%.0fms",
+            result.get("model_used"), result.get("provider"),
+            result.get("fallback_used"), result.get("context_chunks", 0),
+            total_ms,
+        )
+
+        return ChatResponse(
+            answer=result["answer"],
+            model_used=result["model_used"],
+            provider=result["provider"],
+            mode=request.mode,
+            fallback_used=result.get("fallback_used", False),
+            latency_ms=result.get("latency_ms", total_ms),
+            tokens_used=result.get("tokens_used"),
+            context_used=result.get("context_used", []),
+            context_chunks=result.get("context_chunks", 0),
+        )
+
+    except RuntimeError as exc:
+        logger.error("All LLM providers failed: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="All LLM providers failed. Check your configuration and API keys.",
+        )
     except Exception as exc:
         logger.error("Chat failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.post("/rag/index")
-async def rag_index(request: IndexRequest):
+# ── Index Endpoint ─────────────────────────────────────────────────
+
+@app.post("/index")
+async def index_codebase(request: IndexRequest):
     """Index a codebase directory for RAG queries."""
     directory = request.directory
     if not os.path.isdir(directory):
         raise HTTPException(status_code=400, detail=f"Directory not found: {directory}")
+
+    logger.info("Indexing directory: %s", directory)
 
     try:
         chunks = rag_service.chunk_directory(directory)
@@ -157,12 +208,20 @@ async def rag_index(request: IndexRequest):
 
         rag_service.build_index(chunks)
         status = rag_service.index_status()
+        logger.info("Indexing complete: %d chunks", status.get("total_chunks", 0))
         return {"status": "indexed", **status}
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("RAG indexing failed: %s", exc, exc_info=True)
+        logger.error("Indexing failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+# Alias: /rag/index → /index
+@app.post("/rag/index")
+async def rag_index(request: IndexRequest):
+    """Alias for /index."""
+    return await index_codebase(request)
 
 
 @app.get("/rag/status")
@@ -171,24 +230,24 @@ async def rag_status():
     return rag_service.index_status()
 
 
-@app.post("/rag/query")
-async def rag_query(request: ChatRequest):
-    """Query the indexed codebase using RAG."""
-    try:
-        result = await rag_service.rag_query(
-            query=request.query,
-            orchestrator=orchestrator,
-            model_preference=request.model,
-        )
-        return result
-    except Exception as exc:
-        logger.error("RAG query failed: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+# ── Debug Endpoint ─────────────────────────────────────────────────
+
+@app.post("/debug")
+async def debug_analyze_short(request: DebugRequest):
+    """Analyze error logs for root cause."""
+    return await _debug_analyze(request)
 
 
 @app.post("/debug/analyze")
 async def debug_analyze(request: DebugRequest):
-    """Analyze error logs for root cause."""
+    """Analyze error logs for root cause (legacy endpoint)."""
+    return await _debug_analyze(request)
+
+
+async def _debug_analyze(request: DebugRequest):
+    """Shared debug analysis logic."""
+    logger.info("Debug analysis request: model=%s, log_len=%d", request.model, len(request.log_content))
+
     try:
         result = await debug_service.analyze_errors(
             log_content=request.log_content,
@@ -196,11 +255,51 @@ async def debug_analyze(request: DebugRequest):
             model_preference=request.model,
             additional_context=request.additional_context,
         )
+
+        logger.info(
+            "Debug analysis complete: model=%s, errors_found=%d",
+            result.get("model_used"), result.get("parsed_errors", 0),
+        )
+
         return result
     except Exception as exc:
         logger.error("Debug analysis failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
 
+
+# ── Dependency Endpoint ───────────────────────────────────────────
+
+@app.post("/deps")
+async def deps_query(request: DepsRequest):
+    """Dependency analysis — parse file or answer impact queries."""
+    if request.file_path:
+        if not os.path.isfile(request.file_path):
+            raise HTTPException(status_code=400, detail=f"File not found: {request.file_path}")
+
+        try:
+            info = graph_service.parse_python_file(str(Path(request.file_path).resolve()))
+            return info
+        except Exception as exc:
+            logger.error("Dependency parsing failed: %s", exc, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(exc))
+
+    elif request.query:
+        # Use RAG to answer dependency impact questions
+        try:
+            result = await rag_service.rag_query(
+                query=f"Dependency analysis: {request.query}",
+                orchestrator=orchestrator,
+                model_preference=request.model,
+            )
+            return result
+        except Exception as exc:
+            logger.error("Dependency query failed: %s", exc, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(exc))
+
+    raise HTTPException(status_code=400, detail="Provide either file_path or query")
+
+
+# ── Graph Endpoints (legacy) ──────────────────────────────────────
 
 @app.post("/graph/parse")
 async def graph_parse(request: GraphParseRequest):
@@ -219,21 +318,28 @@ async def graph_parse(request: GraphParseRequest):
 
 @app.get("/graph/deps")
 async def graph_deps(module_id: str):
-    """Query dependencies for a specific module (in-memory graph)."""
-    # This uses in-memory data; for Neo4j, use the Neo4jGraphStore
+    """Query dependencies for a specific module."""
     return {"message": "Use POST /graph/parse first, then query the returned graph data"}
 
+
+# ── Health Check ───────────────────────────────────────────────────
 
 @app.get("/health")
 async def health():
     """Health check endpoint."""
     ollama_ok = await orchestrator.ollama.is_available()
+    rag_stat = rag_service.index_status()
+
     return {
         "status": "healthy",
         "providers": {
             "ollama": "available" if ollama_ok else "unavailable",
-            "groq": "configured" if settings.GROQ_API_KEY else "not_configured",
-            "gemini": "configured" if settings.GEMINI_API_KEY else "not_configured",
+            "groq": "configured" if settings.GROQ_API_KEY and settings.GROQ_API_KEY != "your_groq_api_key_here" else "not_configured",
+            "gemini": "configured" if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY != "your_gemini_api_key_here" else "not_configured",
+        },
+        "rag": {
+            "indexed": rag_stat.get("indexed", False),
+            "total_chunks": rag_stat.get("total_chunks", 0),
         },
     }
 

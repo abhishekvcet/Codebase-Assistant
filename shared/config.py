@@ -40,13 +40,15 @@ class Settings:
     NEO4J_PASSWORD: str = os.getenv("NEO4J_PASSWORD", "codeassist")
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-    # ── RAG ────────────────────────────────────────────────────────
+    # ── RAG / ChromaDB ─────────────────────────────────────────────
     EMBEDDING_MODEL: str = os.getenv(
         "EMBEDDING_MODEL", "all-MiniLM-L6-v2"
     )
     CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", "512"))
     CHUNK_OVERLAP: int = int(os.getenv("CHUNK_OVERLAP", "64"))
     TOP_K_RESULTS: int = int(os.getenv("TOP_K_RESULTS", "5"))
+    CHROMA_PERSIST_DIR: str = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
+    CHROMA_COLLECTION_NAME: str = os.getenv("CHROMA_COLLECTION_NAME", "codebase")
 
     # ── Server ─────────────────────────────────────────────────────
     API_HOST: str = os.getenv("API_HOST", "0.0.0.0")

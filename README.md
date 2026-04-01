@@ -38,15 +38,19 @@ ChromaDB data is stored **outside the repository** (`../chromadb`) by default, e
 
 Our assistant is designed to **complement**, not compete with, world-class AI editors like Cursor or VS Code Copilot. It provides a specialized "Architect's View" of your codebase that functions alongside your favorite development environment.
 
-| Tool | Best For | Pros | Cons |
-| :--- | :--- | :--- | :--- |
-| **VS Code Copilot** | Inline auto-completion | Extremely fast; great for small snippets. | Weak on full-repo architectural context. |
-| **Cursor** | AI-First Development | Best-in-class IDE integration; very intuitive. | Large resource footprint; expensive subscription. |
-| **Antigravity** | Agentic Coding Tasks | Deep reasoning; can perform complex edits. | Higher latency; optimized for heavy lifting. |
-| **Our Assistant** | **Semantic Analysis** | **Lightweight; 2D workflows; Hybrid fallback.** | CLI-focused; no inline auto-completion. |
+| Feature | VS Code Copilot | Cursor IDE | Antigravity | **Our Assistant** |
+| :--- | :---: | :---: | :---: | :---: |
+| **Inline Autocomplete** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐ |
+| **Full Repo Context** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Visual Architecture** | ⭐ | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Semantic Analysis** | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Codebase Workflows** | ⭐ | ⭐ | ⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Agentic Edits** | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+| **Latency / Speed** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Custom Control** | ⭐ | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
 
-> [!NOTE]
-> **Use Case**: Use Cursor for your daily coding, and use our assistant for **high-level logic visualization**, **architectural planning**, and **debugging deep cross-file dependencies**.
+> [!TIP]
+> **Conclusion**: Use Cursor for your daily coding (Best IDE), and use our assistant as the **"Architect's Brain"** for high-level logic visualization, complex architectural planning, and deep semantic debugging. They are the perfect duo!
 
 ---
 

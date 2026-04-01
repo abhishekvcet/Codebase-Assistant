@@ -54,6 +54,17 @@ Our assistant is designed to **complement**, not compete with, world-class AI ed
 
 ---
 
+## 🔒 Privacy & Security
+
+We take a **Local-First** approach to your sensitive source code.
+
+-   **Zero Cloud by Default**: If you use **Local (Ollama)**, your code never leaves your machine. All indexing, retrieval, and inference happen on your hardware.
+-   **Local Storage**: Your vectorized codebase is stored in **ChromaDB** on your own disk (`../chromadb`). We do not host or upload your indexes.
+-   **Opt-In Cloud Inference**: Cloud providers (Groq/Gemini) are only used if you **explicitly** configure API keys in `.env` and select them in the menu.
+-   **No Data Training**: We do not use your code to train any models. Your project logic remains your own.
+
+---
+
 ## 🏗️ System Workflow
 
 ```mermaid

@@ -23,6 +23,7 @@ from rich.markdown import Markdown
 from rich.table import Table
 from rich.prompt import Prompt
 from rich import print as rprint
+import questionary
 
 # Ensure project root on sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -38,6 +39,14 @@ console = Console()
 
 # Default API base URL
 API_BASE = "http://localhost:8000"
+
+# Custom style for Questionary
+custom_style = questionary.Style([
+    ('pointer', 'fg:#C06A49 bold'),
+    ('highlighted', 'fg:#C06A49 bold'),
+    ('question', 'bold'),
+    ('answer', 'fg:#C06A49 bold'),
+])
 
 
 def _run_async(coro):
@@ -183,34 +192,44 @@ def run():
     ))
 
     # 1. Select Mode
-    console.print("\n[bold]Select Mode:[/]")
-    console.print("  [cyan]1.[/] 💬 Chat — Ask questions about your codebase")
-    console.print("  [cyan]2.[/] 🔍 Debug — Analyze error logs")
-    console.print("  [cyan]3.[/] 📊 Dependency Analysis — Explore code dependencies")
+    mode_display = questionary.select(
+        "Select Mode:",
+        choices=[
+            "💬 Chat — Ask questions about your codebase",
+            "🔍 Debug — Analyze error logs",
+            "📊 Dependency Analysis — Explore code dependencies",
+        ],
+        pointer=">",
+        style=custom_style,
+    ).ask()
 
-    mode_choice = Prompt.ask(
-        "\n[bold]Choose mode[/]",
-        choices=["1", "2", "3"],
-        default="1",
-    )
+    if not mode_display:
+        return
 
-    mode_map = {"1": "chat", "2": "debug", "3": "deps"}
-    mode = mode_map[mode_choice]
+    mode_map = {
+        "💬 Chat — Ask questions about your codebase": "chat",
+        "🔍 Debug — Analyze error logs": "debug",
+        "📊 Dependency Analysis — Explore code dependencies": "deps"
+    }
+    mode = mode_map[mode_display]
 
     # 2. Select Model Type
-    console.print("\n[bold]Select Model Type:[/]")
-    console.print("  [cyan]1.[/] 🏠 Local (Ollama)")
-    console.print("  [cyan]2.[/] ☁️  API (Cloud)")
+    type_display = questionary.select(
+        "Select Model Type:",
+        choices=[
+            "🏠 Local (Ollama)",
+            "☁️  API (Cloud)",
+        ],
+        pointer=">",
+        style=custom_style,
+    ).ask()
 
-    type_choice = Prompt.ask(
-        "\n[bold]Choose type[/]",
-        choices=["1", "2"],
-        default="1",
-    )
+    if not type_display:
+        return
 
     model_preference = "auto"
 
-    if type_choice == "1":
+    if "Local" in type_display:
         # Local — fetch models dynamically
         console.print("\n[dim]Fetching installed Ollama models...[/]")
         models = _run_async(_get_ollama_models())
@@ -223,32 +242,35 @@ def run():
             )
             model_preference = "auto"
         else:
-            console.print("\n[bold]Available Local Models:[/]")
-            for i, m in enumerate(models, 1):
-                console.print(f"  [cyan]{i}.[/] {m}")
+            selected_model = questionary.select(
+                "Choose Local Model:",
+                choices=models,
+                pointer=">",
+                style=custom_style,
+            ).ask()
 
-            model_idx = Prompt.ask(
-                "\n[bold]Choose model[/]",
-                choices=[str(i) for i in range(1, len(models) + 1)],
-                default="1",
-            )
-            selected_model = models[int(model_idx) - 1]
+            if not selected_model:
+                return
+
             model_preference = "local"
             console.print(f"\n[green]✓ Using local model:[/] {selected_model}")
 
-    elif type_choice == "2":
+    elif "API" in type_display:
         # API — choose provider
-        console.print("\n[bold]Select API Provider:[/]")
-        console.print("  [cyan]1.[/] ⚡ Groq (Fast inference)")
-        console.print("  [cyan]2.[/] 🧠 Gemini (Deep reasoning)")
+        api_display = questionary.select(
+            "Select API Provider:",
+            choices=[
+                "⚡ Groq (Fast inference)",
+                "🧠 Gemini (Deep reasoning)",
+            ],
+            pointer=">",
+            style=custom_style,
+        ).ask()
 
-        api_choice = Prompt.ask(
-            "\n[bold]Choose provider[/]",
-            choices=["1", "2"],
-            default="1",
-        )
+        if not api_display:
+            return
 
-        model_preference = "groq" if api_choice == "1" else "gemini"
+        model_preference = "groq" if "Groq" in api_display else "gemini"
         console.print(f"\n[green]✓ Using:[/] {model_preference}")
 
     console.print()

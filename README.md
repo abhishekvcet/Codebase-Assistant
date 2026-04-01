@@ -102,11 +102,11 @@ The `cb` shortcut provides a "premium" terminal experience with a high-fidelity 
 
 | Command | Description |
 | :--- | :--- |
-| `.\cb cli` | **Full Interactive Mode** (Chat, Debug, Architecture) |
-| `.\cb index <dir>` | Index a project folder into ChromaDB (Required) |
-| `.\cb web` | Instantly open the Web UI in your browser |
-| `.\cb stop` | Safely shutdown the background server |
-| `.\cb health` | Check reachability of Ollama, Groq, and Gemini |
+| `cb cli` | **Full Interactive Mode** (Chat, Debug, Architecture) |
+| `cb index <dir>` | Index a project folder into ChromaDB (Required) |
+| `cb web` | Instantly open the Web UI in your browser |
+| `cb stop` | Safely shutdown the background server |
+| `cb health` | Check reachability of Ollama, Groq, and Gemini |
 
 ---
 

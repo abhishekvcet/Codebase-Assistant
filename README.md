@@ -1,45 +1,77 @@
-# 🧠 Intelligent Codebase Assistant
+# 🧠 Intelligent Codebase Assistant — v1.0
 
-AI-powered code understanding, debugging, and documentation — powered by a hybrid LLM system (Ollama / Groq / Gemini) with RAG-based retrieval using ChromaDB.
-
----
-
-## ✨ Features
-
--   **RAG-Powered Code Chat** — Strict RAG-first pipeline indexing code into ChromaDB for context-aware answers.
--   **Hybrid LLM System** — Fallback orchestration: `Local (Ollama) → Groq → Gemini` with 3x retry logic.
--   **Automated Startup** — Simple `python main.py` to launch the API server and Web UI.
--   **Interactive CLI (`cb`)** — Menu-driven mode selection (Chat / Debug / Dependency) with shorthand commands like `cb cli`, `cb stop`, and `cb web`.
--   **Web UI** — Real-time chat with model selection, context source display, and markdown rendering.
--   **External Database** — ChromaDB data is stored outside the repository for cleaner commits.
--   **Debug Mode** — Root cause analysis from error logs with fix recommendations based on indexed code.
--   **Dependency Analysis** — Parse AST imports/classes/functions and analyze cross-module impact.
+AI-powered code understanding, debugging, and high-level architectural visualization. Built with a **Hybrid LLM Orchestrator** and a **Semantic RAG Pipeline** to give you deep insights into any codebase within seconds.
 
 ---
 
-## 🏗️ Architecture
+## 🔥 Key Innovations
 
+### 1. 🎨 Visual Architecture (Adaptive Workflow)
+Unlike traditional tools that only show file lists, our assistant generates a **2D Semantic Workflow**. It identifies your entry points, core logic providers, and storage layers, then visualizes them with professional icons and distinct shapes (Hexagons, Diamonds, Cylinders) using Mermaid.
+
+### 2. 🧠 Smart Context Injection (Strict RAG)
+We enforce a **Context-Only** response policy. The assistant retrieves relevant AST chunks from a persistent **ChromaDB** store and uses them to anchor every answer. No hallucinated code.
+
+### 3. ⛓️ Hybrid LLM Orchestrator
+A robust fallback chain with exponential backoff and 3x retries:
+`Local (Ollama) → Cloud (Groq) → Deep Reasoning (Gemini)`
+
+### 4. 🗄️ External Persistence
+ChromaDB data is stored **outside the repository** (`../chromadb`) by default, ensuring your project directory stays clean and your vector database persists across multiple project versions.
+
+---
+
+## 📊 Comparison: Standard RAG vs. Our Assistant
+
+| Feature | Standard RAG | **Our Intelligent Assistant** |
+| :--- | :--- | :--- |
+| **Indexing** | Basic text chunking | **AST-Aware Chunking** (Functions/Classes) |
+| **Logic Recovery** | None | **Semantic Architecture Workflows** |
+| **Model Choice** | Single Model | **Hybrid Fallback Orchestrator** |
+| **Reliability** | Fails on API errors | **3x Retry Logic + Provider Failover** |
+| **Visuals** | Static file trees | **Dynamic 2D Mermaid Flowcharts** |
+| **Storage** | Local/Temporary | **Persistent External Database** |
+
+---
+
+## 🏗️ System Workflow
+
+```mermaid
+graph TD
+    User((👤 Developer)) -->|Input| CLI{{⌨️ CLI / Web UI}}
+    
+    subgraph Processing Layer
+        CLI -->|Query| Gateway{{🌐 API Gateway}}
+        Gateway -->|Retrieve| RAG(📂 RAG Service)
+        RAG -->|Metadata| DB[(📁 ChromaDB)]
+    end
+    
+    subgraph Reasoning Layer
+        Gateway -->|Context| Brain{🧠 LLM Orchestrator}
+        Brain -->|Strategy| Local(🏠 Ollama)
+        Brain -->|Fallback| Groq(⚡ Groq)
+        Brain -->|Deep Logic| Gemini(🔮 Gemini)
+    end
+    
+    subgraph Visualization Layer
+        Gateway -->|AST Analysis| Graph(🎨 Visual Workflow)
+        Graph -->|Mermaid| Visual[📊 2D Architecture]
+    end
+
+    Gemini -->|Answer| User
+    Visual -->|Diagram| User
 ```
-User (CLI / Web UI)
-       │
-       ▼
-  API Gateway (FastAPI :8000)
-       │
-       ├── /chat ──→ RAG (ChromaDB) ──→ LLM Orchestrator ──→ Response
-       ├── /index ─→ Chunk + Embed ──→ ChromaDB (persistent)
-       ├── /debug ─→ Parse Logs ────→ LLM Analysis
-       ├── /deps ──→ AST Parsing ──→ Dependency Info
-       └── /health → Provider Status
-```
 
 ---
 
-## 🚀 Quick Start (Windows)
+## 🚀 Setup & Installation (Windows)
 
-The fastest way to get started is using our automated scripts.
+### 1. Prerequisites
+- **Python 3.10+**
+- **Ollama** (for local models like `llama3:8b`)
+- **Groq/Gemini API Keys** (Optional, for cloud fallback)
 
-### 1. Initial Setup
-
+### 2. Initial Setup
 ```powershell
 git clone <repo-url>
 cd Codebase-Assistant
@@ -48,102 +80,50 @@ cd Codebase-Assistant
 python -m venv .venv
 .venv\Scripts\activate
 
-# Install all requirements (including sentence-transformers)
+# Install requirements
 pip install -r requirements.txt
 
-# Create your .env file
+# Configure environment
 copy .env.example .env
 ```
+*Edit `.env` to add your Groq/Gemini keys for the best experience.*
 
-### 2. Configure API Keys
-Edit your `.env` file to add your `GROQ_API_KEY` or `GEMINI_API_KEY` if you want to use cloud models.
-
-### 3. Launch the Server 🚀
-Start the API server and Web UI:
+### 3. Launching the Assistant
 ```powershell
+# Start the unified server (API + Web UI)
 python main.py
 ```
 
-### 4. Interactive CLI
-Open a new terminal and run:
-```powershell
-.\cb cli
-```
-
-### 4. Index Your Codebase (Required First Step)
-The assistant uses a strict RAG-first pipeline. You **must** index your project folder before chatting:
-```powershell
-# Open a new terminal (while server is running) and run:
-.\cb index C:\path\to\your\codebase
-```
-
 ---
 
-## 💻 CLI Commands (`cb`)
+## 💻 Working with the CLI (`cb`)
 
-We provide a `cb` shortcut for a streamlined terminal experience.
+The `cb` shortcut provides a "premium" terminal experience with a high-fidelity ASCII banner and specialized menu styles.
 
 | Command | Description |
 | :--- | :--- |
-| `.\cb cli` | Launch Interactive Mode (Chat/Debug/Deps) |
-| `.\cb web` | Open the Web UI in your default browser |
-| `.\cb stop` | Shutdown the backend server safely |
-| `.\cb health` | Check if providers (Ollama, Groq, etc.) are reachable |
+| `.\cb cli` | **Full Interactive Mode** (Chat, Debug, Architecture) |
+| `.\cb index <dir>` | Index a project folder into ChromaDB (Required) |
+| `.\cb web` | Instantly open the Web UI in your browser |
+| `.\cb stop` | Safely shutdown the background server |
+| `.\cb health` | Check reachability of Ollama, Groq, and Gemini |
 
 ---
 
-## 🌐 API & Web UI
+## 📂 Project Structure
 
--   **Dashboard**: Access the Web UI at [http://localhost:8000](http://localhost:8000)
--   **API Base**: [http://localhost:8000](http://localhost:8000)
--   **Health**: [http://localhost:8000/health](http://localhost:8000/health)
-
----
-
-## ⚙️ Configuration
-
-Settings are managed in `.env`. Key options:
-
-| Variable | Default | Description |
-| :--- | :--- | :--- |
-| `CHROMA_PERSIST_DIR` | `../chroma_db` | **Now stored outside the repo** for cleanliness |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Requires `sentence-transformers` (installed via pip) |
-| `GROQ_API_KEY` | — | Required for high-speed cloud inference |
-| `GEMINI_API_KEY` | — | Required for deep architectural reasoning |
-
----
-
-## 🔄 LLM Fallback Chain
-
-The system automatically falls back if a provider fails or API keys are missing:
-`Primary Provider → Local (Ollama) → Groq → Gemini`
-
-Each provider retries **3 times** with exponential backoff before failing over.
-
----
-
-## 🛠️ Troubleshooting
-
-| Problem | Solution |
-| :--- | :--- |
-| `Cannot connect to backend` | Ensure you ran `python main.py` and the server is active. |
-| `ChromaDB error (missing package)` | Run `pip install sentence-transformers`. |
-| `Interactive CLI busy` | Open a second terminal to run `cb index` while chatting. |
-| `No code context found` | You must index your codebase first using the `cb index` command. |
+-   `cli/` : Interactive terminal interface with `rich` and `questionary`.
+-   `services/`
+    - `api_gateway/` : FastAPI entry point and endpoint routing.
+    - `rag_service/` : ChromaDB management and AST chunking.
+    - `graph_service/` : Visual architecture and logic flow generator.
+    - `debug_service/` : Log analysis and fix advisor.
+-   `shared/`
+    - `llm/` : Clients and the Orchestrator brain.
+    - `config.py` : Pydantic-based settings management.
 
 ---
 
 ## 📄 License
 
-MIT
- the server: `python -m services.api_gateway.main` |
-| `No Ollama models found` | Run `ollama pull llama3:8b` and ensure Ollama is running |
-| `Groq/Gemini not working` | Set valid API keys in `.env` |
-| `No code context found` | Index your codebase first: `cb index ./project` |
-| `ChromaDB error` | Delete `./chroma_db/` and re-index |
-
----
-
-## 📄 License
-
-MIT
+MIT — Build something great.

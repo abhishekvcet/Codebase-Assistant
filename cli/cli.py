@@ -185,11 +185,17 @@ def cli_command():
 @app.command()
 def run():
     """Interactive mode — select mode, model, and start working."""
-    console.print(Panel(
-        "[bold cyan]🧠 Intelligent Codebase Assistant[/]\n"
-        "Interactive Mode",
-        border_style="cyan",
-    ))
+    # Custom ASCII Banner
+    banner = """
+[#C06A49] ██████  ██████  ██████  ███████ ██████   █████  ██████  ███████    ██████ ██      ██ 
+██      ██    ██ ██   ██ ██      ██   ██ ██   ██ ██      ██         ██      ██      ██ 
+██      ██    ██ ██   ██ █████   ██████  ███████ ███████ █████      ██      ██      ██ 
+██      ██    ██ ██   ██ ██      ██   ██ ██   ██      ██ ██         ██      ██      ██ 
+ ██████  ██████  ██████  ███████ ██████  ██   ██ ███████ ███████     ██████ ███████ ██ [/]
+
+[#C06A49] codebase CLI v 1.0 [/]
+"""
+    console.print(banner)
 
     # 1. Select Mode
     mode_display = questionary.select(

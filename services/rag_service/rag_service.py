@@ -19,11 +19,6 @@ import chromadb
 from chromadb.utils import embedding_functions
 
 from shared.config import settings
-from shared.prompts import (
-    RAG_SYSTEM_PROMPT,
-    RAG_AUGMENTED_PROMPT_TEMPLATE,
-    RAG_NO_CONTEXT_WARNING,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -291,16 +286,16 @@ async def rag_query(
     context_used = []
 
     if not results:
-        context = f"WARNING: {RAG_NO_CONTEXT_WARNING}"
+        context = "⚠ WARNING: No relevant code context was found in the index. The codebase may not be indexed yet."
         logger.warning("RAG returned no results for query: %s", query)
     else:
         context_parts = []
         for r in results:
-            scope_label = f" | scope={r['scope']}" if r['scope'] else ""
+            scope_label = f" → {r['scope']}" if r['scope'] else ""
             context_parts.append(
-                f"### `{r['file']}` (lines {r['start_line']}-{r['end_line']}, "
+                f"--- {r['file']} (lines {r['start_line']}-{r['end_line']}, "
                 f"lang={r['language']}{scope_label}, "
-                f"relevance={r['score']:.3f})\n```{r['language']}\n{r['text']}\n```"
+                f"score={r['score']:.3f}) ---\n{r['text']}"
             )
             context_used.append({
                 "file": r["file"],
@@ -310,16 +305,19 @@ async def rag_query(
             })
         context = "\n\n".join(context_parts)
 
-    # Enhanced augmented prompt with system prompt
-    augmented_prompt = RAG_AUGMENTED_PROMPT_TEMPLATE.format(
-        context=context,
-        query=query,
+    # Strict augmented prompt — enforce context-only answers
+    augmented_prompt = (
+        "Use ONLY the following code context to answer the question.\n"
+        "If the context does not contain enough information, say so explicitly.\n"
+        "Do NOT make up code or information not present in the context.\n\n"
+        f"## Code Context\n\n{context}\n\n"
+        f"## Question\n\n{query}\n\n"
+        "Provide a clear, detailed answer referencing the specific code where relevant."
     )
 
     response = await orchestrator.generate_response(
         augmented_prompt,
         model_preference=model_preference,
-        system_prompt=RAG_SYSTEM_PROMPT,
     )
     response["context_chunks"] = len(results)
     response["context_used"] = context_used

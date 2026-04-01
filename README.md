@@ -8,8 +8,8 @@ AI-powered code understanding, debugging, and documentation — powered by a hyb
 
 -   **RAG-Powered Code Chat** — Strict RAG-first pipeline indexing code into ChromaDB for context-aware answers.
 -   **Hybrid LLM System** — Fallback orchestration: `Local (Ollama) → Groq → Gemini` with 3x retry logic.
--   **Automated Startup** — One-click `start_all.bat` to launch the API server, Web UI, and Interactive CLI.
--   **Interactive CLI (`cb`)** — Menu-driven mode selection (Chat / Debug / Dependency) with shorthand commands.
+-   **Automated Startup** — Simple `python main.py` to launch the API server and Web UI.
+-   **Interactive CLI (`cb`)** — Menu-driven mode selection (Chat / Debug / Dependency) with shorthand commands like `cb cli`, `cb stop`, and `cb web`.
 -   **Web UI** — Real-time chat with model selection, context source display, and markdown rendering.
 -   **External Database** — ChromaDB data is stored outside the repository for cleaner commits.
 -   **Debug Mode** — Root cause analysis from error logs with fix recommendations based on indexed code.
@@ -58,10 +58,16 @@ copy .env.example .env
 ### 2. Configure API Keys
 Edit your `.env` file to add your `GROQ_API_KEY` or `GEMINI_API_KEY` if you want to use cloud models.
 
-### 3. One-Click Launch 🚀
-Start the server, open the browser, and enter interactive chat all at once:
+### 3. Launch the Server 🚀
+Start the API server and Web UI:
 ```powershell
-.\start_all.bat
+python main.py
+```
+
+### 4. Interactive CLI
+Open a new terminal and run:
+```powershell
+.\cb cli
 ```
 
 ### 4. Index Your Codebase (Required First Step)
@@ -79,9 +85,9 @@ We provide a `cb` shortcut for a streamlined terminal experience.
 
 | Command | Description |
 | :--- | :--- |
-| `.\cb index <path>` | Index a folder or file into the database |
-| `.\cb run` | Launch Interactive Mode (Chat/Debug/Deps) |
+| `.\cb cli` | Launch Interactive Mode (Chat/Debug/Deps) |
 | `.\cb web` | Open the Web UI in your default browser |
+| `.\cb stop` | Shutdown the backend server safely |
 | `.\cb health` | Check if providers (Ollama, Groq, etc.) are reachable |
 
 ---
@@ -120,7 +126,7 @@ Each provider retries **3 times** with exponential backoff before failing over.
 
 | Problem | Solution |
 | :--- | :--- |
-| `Cannot connect to backend` | Ensure you ran `.\start_all.bat` or the server main script. |
+| `Cannot connect to backend` | Ensure you ran `python main.py` and the server is active. |
 | `ChromaDB error (missing package)` | Run `pip install sentence-transformers`. |
 | `Interactive CLI busy` | Open a second terminal to run `cb index` while chatting. |
 | `No code context found` | You must index your codebase first using the `cb index` command. |

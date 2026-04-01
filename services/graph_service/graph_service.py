@@ -296,3 +296,82 @@ class Neo4jGraphStore:
             ).data()
 
         return {"nodes": nodes, "edges": edges}
+
+
+# ── Semantic Workflow (LLM-based) ──────────────────────────────────
+
+async def generate_semantic_workflow(directory: str, orchestrator) -> str:
+    """Generate a high-level architectural workflow using LLM analysis."""
+    # 1. Get structural summary of the codebase
+    parsed_files = parse_directory(directory)
+    
+    summary_parts = []
+    for pf in parsed_files:
+        if "error" in pf: continue
+        fpath = pf["file"]
+        module = pf["module"]
+        classes = [c["name"] for c in pf.get("classes", [])]
+        functions = [f["name"] for f in pf.get("functions", [])]
+        
+        summary_parts.append(f"Module: {module} ({fpath})")
+        if classes: summary_parts.append(f"  Classes: {', '.join(classes)}")
+        if functions: summary_parts.append(f"  Functions: {', '.join(functions)}")
+        summary_parts.append("")
+
+    code_summary = "\n".join(summary_parts[:50]) # Cap it to avoid context overflow
+
+    # 2. Prompt LLM to generate Mermaid
+    prompt = f"""
+You are an expert system architect and visual designer. Analyze the following codebase structure and generate a HIGH-LEVEL 2D structural workflow using Mermaid (graph TD).
+
+STYLE RULES:
+1. Use distinct shapes for different components:
+   - Use HEXAGONS {{{{node}}}} for entry points / API controllers.
+   - Use ROUNDED (node) for core logic services.
+   - Use CIRCLES ((node)) for background processes or LLM.
+   - Use CYLINDERS [(node)] for databases (ChromaDB/Neo4j).
+   - Use DIAMONDS {{node}} for conditional logic or routers.
+2. Use EMOJIS in every label for a premium look (e.g., 🌐 API, 🧠 LLM, 📁 DB, ⚙️ Logic).
+3. Group related modules into 'subgraph' blocks.
+4. Keep relationships (edges) clear with labels (e.g., -->|Queries|).
+5. Output ONLY the Mermaid code block starting with 'graph TD'.
+
+Codebase Structure:
+{code_summary}
+
+Example of desired style:
+graph TD
+    User((👤 User)) -->|Requests| API{{{{🌐 API Gateway}}}}
+    API -->|Search| RAG(📂 RAG Service)
+    RAG -->|Fetch| DB[(📁 ChromaDB)]
+    ... etc.
+"""
+
+    result = await orchestrator.generate_response(
+        query=prompt,
+        model_preference="auto",
+        system_prompt="You are a system architecture visualizer that outputs Mermaid diagrams."
+    )
+    
+    mermaid_text = result.get("answer", "")
+    
+    # 1. Try backticks first
+    if "```mermaid" in mermaid_text:
+        mermaid_text = mermaid_text.split("```mermaid")[1].split("```")[0]
+    elif "```" in mermaid_text:
+        mermaid_text = mermaid_text.split("```")[1].split("```")[0]
+    
+    # 2. If still has conversational text, find the 'graph' keyword
+    if "graph TD" in mermaid_text or "graph LR" in mermaid_text:
+        # Split at the first occurrence of graph and take everything after
+        # But we also need to avoid text AFTER the diagram
+        keyword = "graph TD" if "graph TD" in mermaid_text else "graph LR"
+        parts = mermaid_text.split(keyword)
+        # Take the keyword + the content
+        content = parts[1]
+        
+        # Try to find where it ends (usually at a blank line or triple backticks)
+        # For now, just take until the end but strip trailing filler if we can
+        mermaid_text = keyword + content
+
+    return mermaid_text.strip()

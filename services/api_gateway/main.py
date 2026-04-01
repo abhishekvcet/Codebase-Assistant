@@ -206,7 +206,7 @@ async def index_codebase(request: IndexRequest):
         if not chunks:
             raise HTTPException(status_code=400, detail="No supported files found in directory")
 
-        rag_service.build_index(chunks)
+        rag_service.build_index(chunks, directory=directory)
         status = rag_service.index_status()
         logger.info("Indexing complete: %d chunks", status.get("total_chunks", 0))
         return {"status": "indexed", **status}
@@ -313,6 +313,25 @@ async def graph_parse(request: GraphParseRequest):
         return graph
     except Exception as exc:
         logger.error("Graph parsing failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/graph/workflow")
+async def graph_workflow(request: GraphParseRequest):
+    """Generate high-level architecture semantic workflow."""
+    directory = request.directory
+    if not directory or directory == ".":
+        # Try to get from RAG metadata
+        directory = rag_service.get_last_indexed_directory() or "."
+    
+    if not os.path.isdir(directory):
+        raise HTTPException(status_code=400, detail=f"Directory not found: {directory}")
+
+    try:
+        mermaid = await graph_service.generate_semantic_workflow(directory, orchestrator)
+        return {"mermaid": mermaid}
+    except Exception as exc:
+        logger.error("Workflow generation failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
 
 

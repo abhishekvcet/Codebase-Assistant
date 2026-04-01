@@ -8,6 +8,7 @@ Commands:
   cb health                    Check provider health
 """
 
+import os
 import sys
 import time
 import asyncio
@@ -204,6 +205,7 @@ def run():
             "💬 Chat — Ask questions about your codebase",
             "🔍 Debug — Analyze error logs",
             "📊 Dependency Analysis — Explore code dependencies",
+            "🎨 Visual Architecture — Generate 2D workflow",
         ],
         pointer=">",
         style=custom_style,
@@ -215,7 +217,8 @@ def run():
     mode_map = {
         "💬 Chat — Ask questions about your codebase": "chat",
         "🔍 Debug — Analyze error logs": "debug",
-        "📊 Dependency Analysis — Explore code dependencies": "deps"
+        "📊 Dependency Analysis — Explore code dependencies": "deps",
+        "🎨 Visual Architecture — Generate 2D workflow": "architecture"
     }
     mode = mode_map[mode_display]
 
@@ -288,6 +291,58 @@ def run():
         _debug_mode(model_preference)
     elif mode == "deps":
         _deps_mode(model_preference)
+    elif mode == "architecture":
+        _architecture_mode(model_preference)
+
+
+def _architecture_mode(model_preference: str):
+    """Visual Architecture mode — generate 2D workflow."""
+    console.print(Panel(
+        "[bold cyan]🎨 Architecture Mode[/] — Generate 2D workflow diagram\n"
+        "Analyzes codebase structure and generates a Mermaid diagram.\n"
+        "Type [cyan]quit[/] to stop.",
+        border_style="cyan",
+    ))
+
+    while True:
+        try:
+            with console.status("[bold green]Analyzing semantic architecture...", spinner="dots"):
+                result = _run_async(
+                    _api_call("POST", "/graph/workflow", json={
+                        "directory": ".",  # Backend will fallback to last indexed dir
+                    })
+                )
+
+            if "error" in result:
+                console.print(f"[bold red]Error:[/] {result['error']}")
+                break
+
+            mermaid_str = result.get("mermaid", "graph TD\n    A[Empty Diagram]")
+            _display_semantic_workflow(mermaid_str, "Indexed Codebase")
+            
+            break # Run once and return to menu
+
+        except httpx.ConnectError:
+            console.print(
+                f"[bold red]Error:[/] Cannot connect to backend at {API_BASE}"
+            )
+        except Exception as exc:
+            console.print(f"[bold red]Error:[/] {exc}")
+
+
+def _display_semantic_workflow(mermaid_str: str, path: str):
+    """Display the semantic Mermaid diagram."""
+    console.print(f"\n[bold cyan]📊 Semantic Architecture Workflow for:[/] {path}\n")
+    
+    console.print("\n[bold]Mermaid Diagram (2D Semantic Flow):[/]")
+    console.print(Panel(
+        mermaid_str,
+        title="Copy into Mermaid Live Editor or VS Code extension",
+        subtitle="[dim]https://mermaid.live/[/]",
+        border_style="cyan"
+    ))
+    
+    console.print("\n[green]✅ Generated semantic 2D workflow based on codebase logic.[/]")
 
 
 def _chat_mode(model_preference: str):

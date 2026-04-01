@@ -47,7 +47,7 @@ class Settings:
     CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", "512"))
     CHUNK_OVERLAP: int = int(os.getenv("CHUNK_OVERLAP", "64"))
     TOP_K_RESULTS: int = int(os.getenv("TOP_K_RESULTS", "5"))
-    CHROMA_PERSIST_DIR: str = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
+    CHROMA_PERSIST_DIR: str = os.getenv("CHROMA_PERSIST_DIR", "../chromadb")
     CHROMA_COLLECTION_NAME: str = os.getenv("CHROMA_COLLECTION_NAME", "codebase")
 
     # ── Server ─────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ Pipeline:
 
 import os
 import re
+import json
 import logging
 from pathlib import Path
 from typing import Optional
@@ -188,9 +189,19 @@ def chunk_directory(directory: str) -> list[dict]:
 
 # ── ChromaDB Index ─────────────────────────────────────────────────
 
-def build_index(chunks: list[dict]) -> None:
+def build_index(chunks: list[dict], directory: str = "") -> None:
     """Build/update ChromaDB index from code chunks."""
     collection = _get_collection()
+
+    # Save last indexed directory if provided
+    if directory:
+        persist_dir = os.path.abspath(settings.CHROMA_PERSIST_DIR)
+        meta_path = os.path.join(persist_dir, "metadata.json")
+        try:
+            with open(meta_path, "w") as f:
+                json.dump({"last_indexed_directory": os.path.abspath(directory)}, f)
+        except Exception as exc:
+            logger.warning("Failed to save index metadata: %s", exc)
 
     # Prepare data for upserting
     ids = []
@@ -344,3 +355,16 @@ def index_status() -> dict:
             "total_vectors": 0,
             "error": str(exc),
         }
+
+def get_last_indexed_directory() -> Optional[str]:
+    """Retrieve the path of the last indexed codebase."""
+    persist_dir = os.path.abspath(settings.CHROMA_PERSIST_DIR)
+    meta_path = os.path.join(persist_dir, "metadata.json")
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path, "r") as f:
+                data = json.load(f)
+                return data.get("last_indexed_directory")
+        except Exception:
+            pass
+    return None

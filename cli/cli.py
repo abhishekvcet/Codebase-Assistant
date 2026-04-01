@@ -8,7 +8,6 @@ Commands:
   cb health                    Check provider health
 """
 
-import os
 import re
 import sys
 import time
@@ -42,54 +41,7 @@ console = Console()
 # Default API base URL
 API_BASE = "http://localhost:8000"
 
-# ── IDE Detection & Clickable Links ──────────────────────────────
-
-def _detect_ide() -> str:
-    """Detect which IDE terminal is running the CLI.
-
-    Returns one of: 'vscode', 'jetbrains', 'terminal'
-    """
-    # VS Code sets TERM_PROGRAM or VSCODE_* env vars in its integrated terminal
-    if os.environ.get("TERM_PROGRAM") == "vscode" or os.environ.get("VSCODE_PID"):
-        return "vscode"
-    # JetBrains terminals set TERMINAL_EMULATOR
-    if "jetbrains" in os.environ.get("TERMINAL_EMULATOR", "").lower():
-        return "jetbrains"
-    return "terminal"
-
-
-def _build_file_uri(file_path: str, line: int = 0) -> str:
-    """Build a clickable URI for the detected IDE.
-
-    - VS Code:     vscode://file/{absolute_path}:{line}:{column}
-    - JetBrains:   jetbrains://open?file={absolute_path}&line={line}
-    - Terminal:     file://{absolute_path}
-    """
-    try:
-        resolved = str(Path(file_path).resolve())
-    except (OSError, ValueError):
-        resolved = file_path
-
-    ide = _detect_ide()
-
-    if ide == "vscode":
-        # vscode://file/ requires forward slashes even on Windows
-        vscode_path = resolved.replace("\\", "/")
-        if line > 0:
-            return f"vscode://file/{vscode_path}:{line}:1"
-        return f"vscode://file/{vscode_path}"
-
-    if ide == "jetbrains":
-        if line > 0:
-            return f"jetbrains://open?file={resolved}&line={line}"
-        return f"jetbrains://open?file={resolved}"
-
-    # Fallback: standard file URI
-    try:
-        return Path(resolved).as_uri()
-    except (OSError, ValueError):
-        return f"file:///{resolved}"
-
+# ── Clickable Links ──────────────────────────────────────────────
 
 # Matches Windows paths (C:\...), Unix paths (/home/...), and relative paths (src/foo.py)
 _FILE_PATH_RE = re.compile(
@@ -108,11 +60,7 @@ _URL_RE = re.compile(
 
 
 def _linkify_answer(answer: str) -> Text:
-    """Convert file paths and URLs in the answer into clickable Rich Text links.
-
-    When running inside VS Code's integrated terminal, file paths open
-    directly in the editor at the referenced line number.
-    """
+    """Convert file paths and URLs in the answer into clickable Rich Text links."""
     text = Text()
     last_end = 0
 
@@ -146,14 +94,15 @@ def _linkify_answer(answer: str) -> Text:
         else:
             file_path = m.group(1).strip()
             line_info = m.group(2)
+            resolved = Path(file_path)
 
-            # Extract the starting line number if present
-            line_num = 0
-            if line_info:
-                # "10-20" → take line 10; "10" → take 10
-                line_num = int(line_info.strip().split("-")[0].strip())
+            # Build a file:// URI for the terminal to open
+            try:
+                resolved = resolved.resolve()
+            except (OSError, ValueError):
+                pass
 
-            file_uri = _build_file_uri(file_path, line_num)
+            file_uri = resolved.as_uri()
             display = matched_text.strip()
             text.append(display, style=f"link {file_uri} bold cyan underline")
 
@@ -242,26 +191,17 @@ def _display_response(result: dict):
         for ctx in context_used:
             file_path = ctx.get("file", "")
             file_name = Path(file_path).name if file_path else "unknown"
-            lines_str = ctx.get("lines", "")
 
-            # Extract start line for IDE navigation
-            start_line = 0
-            if lines_str:
-                try:
-                    start_line = int(lines_str.split("-")[0].strip())
-                except (ValueError, IndexError):
-                    pass
-
-            # Make the file name clickable — opens in IDE at the right line
+            # Make the file name clickable
             try:
-                file_uri = _build_file_uri(file_path, start_line)
+                file_uri = Path(file_path).resolve().as_uri()
                 file_text = Text(file_name, style=f"link {file_uri} bold cyan underline")
             except (OSError, ValueError):
                 file_text = Text(file_name, style="cyan")
 
             ctx_table.add_row(
                 file_text,
-                lines_str,
+                ctx.get("lines", ""),
                 ctx.get("scope", "") or "—",
                 f"{ctx.get('score', 0):.3f}",
             )

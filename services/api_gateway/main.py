@@ -322,6 +322,24 @@ async def graph_deps(module_id: str):
     return {"message": "Use POST /graph/parse first, then query the returned graph data"}
 
 
+# ── Shutdown ───────────────────────────────────────────────────────
+
+@app.post("/shutdown")
+async def shutdown():
+    """Shutdown the server."""
+    logger.info("Shutdown requested via API...")
+    # Delay shutdown slightly to allow response to be sent
+    import threading
+    import signal
+    
+    def kill_process():
+        time.sleep(1)
+        os.kill(os.getpid(), signal.SIGTERM)
+        
+    threading.Thread(target=kill_process, daemon=True).start()
+    return {"message": "Shutting down Intelligent Codebase Assistant..."}
+
+
 # ── Health Check ───────────────────────────────────────────────────
 
 @app.get("/health")

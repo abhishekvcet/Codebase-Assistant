@@ -166,7 +166,12 @@ def index(
         raise typer.Exit(1)
 
 
-# ── run ────────────────────────────────────────────────────────────
+# ── cli / run ───────────────────────────────────────────────────────
+
+@app.command(name="cli")
+def cli_command():
+    """Interactive mode — select mode, model, and start working."""
+    run()
 
 @app.command()
 def run():
@@ -478,6 +483,25 @@ def web():
     """Open the Intelligent Codebase Assistant Web UI in your browser."""
     console.print(f"\n[bold green]🌐 Opening Web UI:[/] {API_BASE}\n")
     webbrowser.open(API_BASE)
+
+
+# ── stop ───────────────────────────────────────────────────────────
+
+@app.command()
+def stop():
+    """Shutdown the Intelligent Codebase Assistant server."""
+    console.print("\n[bold yellow]🛑 Stopping Codebase Assistant server...[/]")
+    try:
+        result = _run_async(_api_call("POST", "/shutdown"))
+        console.print(f"[green]✓ {result.get('message', 'Stopping...')}[/]")
+    except httpx.ConnectError:
+        console.print("[dim]Server is already stopped.[/]")
+    except Exception as exc:
+        # Check if it's a 503 or 500 because the server is closing
+        if "503" in str(exc) or "Read error" in str(exc) or "RemoteProtocolError" in str(exc):
+             console.print("[green]✓ Stopped.[/]")
+        else:
+             console.print(f"[bold red]Error:[/] {exc}")
 
 
 # ── health ─────────────────────────────────────────────────────────

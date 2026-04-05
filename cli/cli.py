@@ -261,7 +261,7 @@ def run():
             if not selected_model:
                 return
 
-            model_preference = "local"
+            model_preference = selected_model
             console.print(f"\n[green]✓ Using local model:[/] {selected_model}")
 
     elif "API" in type_display:

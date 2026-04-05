@@ -94,10 +94,19 @@ class LLMOrchestrator:
     def _classify_query(query: str) -> QueryCategory:
         q = query.lower()
 
-        # Debug patterns
+        # Specific provider enforcement keywords
+        if "groq" in q:
+            return QueryCategory.DEBUG  # Force Groq for mentions of it
+        if "gemini" in q:
+            return QueryCategory.COMPLEX # Force Gemini for mentions of it
+        if "ollama" in q or "local llm" in q:
+            return QueryCategory.SIMPLE  # Force Ollama for local mentions
+
+        # Debug patterns (including past tense and common stems)
         debug_words = [
             "error", "bug", "exception", "traceback", "fail", "crash", "stack trace",
-            "debug", "broken", "not working", "fix", "issue", "stderr", "panic",
+            "debug", "broken", "not working", "not worked", "fix", "issue", "stderr", 
+            "panic", "wrong", "failure", "failing", "broken",
         ]
         if any(w in q for w in debug_words):
             return QueryCategory.DEBUG
@@ -106,7 +115,7 @@ class LLMOrchestrator:
         complex_words = [
             "architecture", "design pattern", "refactor", "trade-off", "compare",
             "best practice", "optimize", "performance", "scale", "security",
-            "migration", "complex", "comprehensive", "in-depth",
+            "migration", "complex", "comprehensive", "in-depth", "rewrite",
         ]
         if any(w in q for w in complex_words):
             return QueryCategory.COMPLEX
@@ -115,7 +124,7 @@ class LLMOrchestrator:
         rag_words = [
             "explain", "how does", "what does", "find", "search", "where is",
             "function", "class", "module", "import", "dependency", "flow",
-            "codebase", "source code", "implementation",
+            "codebase", "source code", "implementation", "show me", "where",
         ]
         if any(w in q for w in rag_words):
             return QueryCategory.RAG
@@ -148,17 +157,19 @@ class LLMOrchestrator:
         }
         handler = dispatch.get(provider)
         if not handler:
-            raise ValueError(f"Unknown provider: {provider}")
+            # If not a known provider, assume it's a specific local model name
+            return await self._call_local(query, system_prompt, temperature, max_tokens, model=provider)
         return await handler(query, system_prompt, temperature, max_tokens)
 
     async def _call_local(
-        self, query: str, system_prompt, temperature, max_tokens
+        self, query: str, system_prompt, temperature, max_tokens, model: Optional[str] = None
     ) -> LLMResponse:
         return await self.ollama.timed_generate(
             query,
             system_prompt=system_prompt,
             temperature=temperature,
             max_tokens=max_tokens,
+            model=model,
         )
 
     async def _call_groq(

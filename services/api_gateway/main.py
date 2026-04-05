@@ -363,16 +363,18 @@ async def shutdown():
 
 @app.get("/health")
 async def health():
-    """Health check endpoint."""
+    """Health check endpoint — dynamically verifies all reachable providers."""
     ollama_ok = await orchestrator.ollama.is_available()
+    groq_ok = await orchestrator.groq.is_available()
+    gemini_ok = await orchestrator.gemini.is_available()
     rag_stat = rag_service.index_status()
 
     return {
         "status": "healthy",
         "providers": {
             "ollama": "available" if ollama_ok else "unavailable",
-            "groq": "configured" if settings.GROQ_API_KEY and settings.GROQ_API_KEY != "your_groq_api_key_here" else "not_configured",
-            "gemini": "configured" if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY != "your_gemini_api_key_here" else "not_configured",
+            "groq": "available" if groq_ok else ("configured" if settings.GROQ_API_KEY else "not_configured"),
+            "gemini": "available" if gemini_ok else ("configured" if settings.GEMINI_API_KEY else "not_configured"),
         },
         "rag": {
             "indexed": rag_stat.get("indexed", False),

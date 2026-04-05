@@ -22,12 +22,12 @@ class Settings:
     OLLAMA_TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "120"))
 
     # ── Groq (Cloud LLM) ───────────────────────────────────────────
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "").strip()
     GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
     GROQ_TIMEOUT: int = int(os.getenv("GROQ_TIMEOUT", "60"))
 
     # ── Gemini (Cloud LLM) ─────────────────────────────────────────
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "").strip()
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
     GEMINI_TIMEOUT: int = int(os.getenv("GEMINI_TIMEOUT", "60"))
 
@@ -46,7 +46,7 @@ class Settings:
     )
     CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", "512"))
     CHUNK_OVERLAP: int = int(os.getenv("CHUNK_OVERLAP", "64"))
-    TOP_K_RESULTS: int = int(os.getenv("TOP_K_RESULTS", "5"))
+    TOP_K_RESULTS: int = int(os.getenv("TOP_K_RESULTS", "3"))
     CHROMA_PERSIST_DIR: str = os.getenv("CHROMA_PERSIST_DIR", "../chromadb")
     CHROMA_COLLECTION_NAME: str = os.getenv("CHROMA_COLLECTION_NAME", "codebase")
 

@@ -18,6 +18,7 @@ from typing import Optional
 
 import chromadb
 from chromadb.utils import embedding_functions
+import pathspec
 
 from shared.config import settings
 
@@ -165,10 +166,25 @@ def chunk_file(
     return chunks
 
 
+def _load_gitignore(directory: str):
+    """Load .gitignore patterns from the directory."""
+    gitignore_path = os.path.join(directory, ".gitignore")
+    if os.path.exists(gitignore_path):
+        try:
+            with open(gitignore_path, "r", encoding="utf-8") as f:
+                return pathspec.PathSpec.from_lines("gitwildmatch", f)
+        except Exception as exc:
+            logger.warning("Failed to load .gitignore: %s", exc)
+    return None
+
+
 def chunk_directory(directory: str) -> list[dict]:
-    """Recursively chunk all supported files in a directory."""
+    """Recursively chunk all supported files in a directory, respecting .gitignore."""
     all_chunks = []
     directory_path = Path(directory)
+    
+    # Load .gitignore if it exists
+    spec = _load_gitignore(directory)
 
     skip_dirs = {
         ".git", "__pycache__", "node_modules", ".venv", "venv",
@@ -176,8 +192,35 @@ def chunk_directory(directory: str) -> list[dict]:
     }
 
     for root, dirs, files in os.walk(directory_path):
-        dirs[:] = [d for d in dirs if d not in skip_dirs]
+        # Calculate relative path from root for pathspec matching
+        rel_root = os.path.relpath(root, directory_path)
+        if rel_root == ".":
+            rel_root = ""
+
+        # Filter directories
+        new_dirs = []
+        for d in dirs:
+            if d in skip_dirs:
+                continue
+            
+            # Check if directory is ignored by .gitignore
+            if spec:
+                rel_dir = os.path.join(rel_root, d)
+                # pathspec usually expects a trailing slash for directories
+                if spec.match_file(rel_dir + "/"):
+                    continue
+            
+            new_dirs.append(d)
+        
+        dirs[:] = new_dirs
+
         for file in files:
+            # Check if file is ignored by .gitignore
+            if spec:
+                rel_file = os.path.join(rel_root, file)
+                if spec.match_file(rel_file):
+                    continue
+
             ext = Path(file).suffix.lower()
             if ext in SUPPORTED_EXTENSIONS:
                 fpath = os.path.join(root, file)

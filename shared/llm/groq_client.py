@@ -42,7 +42,13 @@ class GroqClient(LLMClient):
                 raise ValueError(
                     "Groq API key not configured. Set GROQ_API_KEY in .env"
                 )
-            from groq import AsyncGroq
+            try:
+                from groq import AsyncGroq
+            except ImportError:
+                raise ImportError(
+                    "The installed 'groq' package is outdated and missing AsyncGroq. "
+                    "Please upgrade with: pip install -U groq"
+                )
             self._client = AsyncGroq(
                 api_key=self.api_key,
                 timeout=self.timeout,
